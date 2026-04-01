@@ -57,7 +57,8 @@ def make_trades(pnls: list[float]) -> pd.DataFrame:
 
 class TestSharpeRatio:
     def test_positive_returns(self):
-        returns = make_returns([0.01] * 252)
+        # Non-constant positive returns (constant series has std=0 → Sharpe=0)
+        returns = make_returns([0.01, 0.005] * 126)
         sr = sharpe_ratio(returns)
         assert sr > 0
 
@@ -66,13 +67,15 @@ class TestSharpeRatio:
         assert sharpe_ratio(returns) == 0.0
 
     def test_annualisation(self):
-        # Constant daily return of 1%, SR should be ~sqrt(252) ≈ 15.87
-        returns = make_returns([0.01] * 252)
+        # mean ≈ std ≈ 0.01 → Sharpe ≈ sqrt(252) * mean/std ≈ sqrt(252)
+        rng = np.random.default_rng(0)
+        returns = make_returns(rng.normal(0.01, 0.01, 252).tolist())
         sr = sharpe_ratio(returns)
-        assert abs(sr - np.sqrt(252)) < 0.5
+        assert abs(sr - np.sqrt(252)) < 3.0  # wide tolerance for random sample
 
     def test_negative_mean_returns_negative(self):
-        returns = make_returns([-0.005] * 252)
+        # Non-constant negative returns so std > 0
+        returns = make_returns([-0.005, -0.003] * 126)
         assert sharpe_ratio(returns) < 0
 
 
@@ -86,7 +89,8 @@ class TestSortinoRatio:
         assert sortino_ratio(returns) == float("inf")
 
     def test_negative_mean_returns_negative(self):
-        returns = make_returns([-0.005, 0.001] * 126)
+        # Use three values so the downside returns are non-constant (std > 0)
+        returns = make_returns([-0.005, -0.003, 0.001] * 84)
         assert sortino_ratio(returns) < 0
 
     def test_greater_than_sharpe_when_downside_small(self):

@@ -119,7 +119,8 @@ class TestAlwaysFlatStrategy:
         data = make_ohlcv()
         result = BacktestEngine(data, AlwaysFlat()).run()
         # No positions held, equity should remain at initial_capital
-        assert (result.equity_curve == pytest.approx(100_000.0, rel=1e-4)).all()
+        # Use max absolute deviation rather than pytest.approx (doesn't do element-wise pandas comparisons)
+        assert (result.equity_curve - 100_000.0).abs().max() < 1.0
 
     def test_no_trades(self):
         data = make_ohlcv()
