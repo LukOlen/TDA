@@ -1,4 +1,4 @@
-import type { BacktestRequest, BacktestResult, StrategyInfo } from "../types";
+import type { BacktestRequest, BacktestResult, CompareRequest, CompareResponse, StrategyInfo } from "../types";
 
 const BASE = "/api";
 
@@ -19,6 +19,21 @@ export async function runBacktest(
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail ?? "Backtest failed");
+  }
+  return res.json();
+}
+
+export async function compareStrategies(
+  req: CompareRequest
+): Promise<CompareResponse> {
+  const res = await fetch(`${BASE}/backtest/compare`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail ?? "Comparison failed");
   }
   return res.json();
 }

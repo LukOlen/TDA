@@ -64,3 +64,24 @@ export interface BacktestRequest {
   commission: number;
   params: Record<string, number>;
 }
+
+export interface StrategySpec {
+  strategy: string;
+  params: Record<string, number>;
+}
+
+export interface CompareRequest {
+  ticker: string;
+  start_date: string;
+  end_date: string;
+  strategies: StrategySpec[];
+  initial_capital: number;
+  commission: number;
+}
+
+export interface CompareResponse {
+  ticker: string;
+  start_date: string;
+  end_date: string;
+  results: BacktestResult[];
+}
