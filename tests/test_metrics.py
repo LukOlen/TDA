@@ -11,6 +11,7 @@ from backtester.stats.metrics import (
     calmar_ratio,
     win_rate,
     profit_factor,
+    avg_trade_return,
     compute_metrics,
 )
 
@@ -195,6 +196,30 @@ class TestProfitFactor:
 
     def test_empty_trades(self):
         assert profit_factor(make_trades([])) == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Avg trade return
+# ---------------------------------------------------------------------------
+
+class TestAvgTradeReturn:
+    def test_positive_average(self):
+        trades = make_trades([10, 20, 30])
+        # pnl_pct for these trades are 0.1, 0.2, 0.3, average is 0.2
+        assert avg_trade_return(trades) == pytest.approx(0.2)
+
+    def test_mixed_returns(self):
+        trades = make_trades([10, -5, 25])
+        # pnl_pct are 0.1, -0.05, 0.25, sum is 0.3, average is 0.1
+        assert avg_trade_return(trades) == pytest.approx(0.1)
+
+    def test_empty_trades(self):
+        assert avg_trade_return(make_trades([])) == 0.0
+
+    def test_missing_pnl_pct_column(self):
+        trades = make_trades([10, 20])
+        trades = trades.drop(columns=["pnl_pct"])
+        assert avg_trade_return(trades) == 0.0
 
 
 # ---------------------------------------------------------------------------
