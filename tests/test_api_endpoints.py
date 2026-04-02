@@ -84,6 +84,28 @@ class TestSingleBacktest:
         })
         assert resp.status_code == 400
 
+    def test_load_data_404(self, client):
+        with patch("api.routes.backtest.load_ohlcv", side_effect=ValueError("No data found")):
+            resp = client.post("/api/backtest", json={
+                "ticker": "INVALID",
+                "start_date": "2020-01-01",
+                "end_date": "2024-01-01",
+                "strategy": "sma_crossover",
+            })
+            assert resp.status_code == 404
+            assert resp.json()["detail"] == "No data found"
+
+    def test_load_data_502(self, client):
+        with patch("api.routes.backtest.load_ohlcv", side_effect=Exception("Network failure")):
+            resp = client.post("/api/backtest", json={
+                "ticker": "AAPL",
+                "start_date": "2020-01-01",
+                "end_date": "2024-01-01",
+                "strategy": "sma_crossover",
+            })
+            assert resp.status_code == 502
+            assert "Failed to fetch market data: Network failure" in resp.json()["detail"]
+
 
 # ---------------------------------------------------------------------------
 # Batch backtest
