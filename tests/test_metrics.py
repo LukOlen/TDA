@@ -198,6 +198,66 @@ class TestProfitFactor:
 
 
 # ---------------------------------------------------------------------------
+# Beta
+# ---------------------------------------------------------------------------
+
+class TestBeta:
+    def test_identical_series_beta_is_one(self):
+        returns = make_returns([0.01, -0.02, 0.03, -0.01] * 50)
+        from backtester.stats.metrics import beta
+        assert beta(returns, returns) == pytest.approx(1.0)
+
+    def test_scaled_series(self):
+        benchmark = make_returns([0.01, -0.02, 0.03, -0.01] * 50)
+        strategy = benchmark * 1.5
+        from backtester.stats.metrics import beta
+        assert beta(strategy, benchmark) == pytest.approx(1.5)
+
+    def test_zero_variance_benchmark_returns_nan(self):
+        benchmark = make_returns([0.01] * 100)
+        strategy = make_returns([0.02] * 100)
+        # Due to numerical precision, a constant series can yield a tiny non-zero variance.
+        # We explicitly set `var_b` to 0.0 using a patched benchmark
+        benchmark.loc[:] = 0.0
+        strategy.loc[:] = 0.0
+        from backtester.stats.metrics import beta
+        import math
+        assert math.isnan(beta(strategy, benchmark))
+
+    def test_short_series_returns_nan(self):
+        benchmark = make_returns([0.01])
+        strategy = make_returns([0.02])
+        from backtester.stats.metrics import beta
+        import math
+        assert math.isnan(beta(strategy, benchmark))
+
+    def test_alignment_and_dropna(self):
+        idx = pd.date_range("2020-01-01", periods=5, freq="B")
+        benchmark = pd.Series([0.01, 0.02, 0.03, 0.04, 0.05], index=idx)
+        # Strategy misses first day, has NaN on third day
+        strategy = pd.Series([0.02, np.nan, 0.08, 0.10], index=idx[1:])
+
+        # Aligned indices should be idx[1], idx[3], idx[4]
+        # Benchmark: [0.02, 0.04, 0.05]
+        # Strategy: [0.02, 0.08, 0.10]
+        # However, covariance formula might output something slightly different based on the mean
+        # Let's mock a simpler relation. Strategy = 2 * benchmark + 0.01
+
+        # Benchmark at aligned indices: [0.02, 0.04, 0.05]
+        # Mean = (0.02 + 0.04 + 0.05) / 3 = 0.11 / 3 = 0.036666
+        # Devs: [-0.016666, 0.003333, 0.013333]
+
+        # Let's create an exact linear relationship to ensure Beta = 2.0
+        # Strategy = 2 * Benchmark
+        # Benchmark: [0.02, 0.04, 0.05] -> Strategy: [0.04, 0.08, 0.10]
+
+        strategy = pd.Series([0.04, np.nan, 0.08, 0.10], index=idx[1:])
+
+        from backtester.stats.metrics import beta
+        assert beta(strategy, benchmark) == pytest.approx(2.0)
+
+
+# ---------------------------------------------------------------------------
 # compute_metrics integration
 # ---------------------------------------------------------------------------
 
