@@ -102,17 +102,17 @@ class RSITrendFilter(BaseStrategy):
         # Both indicators need to converge; trend EMA dominates warmup
         warmup = max(self.trend_period, self.rsi_period) - 1
 
-        signal = pd.Series(0, index=close.index, name="signal")
+        signal_arr = np.zeros(len(close), dtype=int)
         position = 0
 
-        for i in range(len(close)):
-            if i < warmup:
-                # signal.iloc[i] already 0
-                continue
+        price_arr = close.to_numpy()
+        rsi_arr = rsi.to_numpy()
+        ema_arr = trend_ema.to_numpy()
 
-            price = close.iloc[i]
-            r = rsi.iloc[i]
-            ema = trend_ema.iloc[i]
+        for i in range(warmup, len(close)):
+            price = price_arr[i]
+            r = rsi_arr[i]
+            ema = ema_arr[i]
 
             if position == 0:
                 if r < self.oversold and price > ema:
@@ -128,9 +128,9 @@ class RSITrendFilter(BaseStrategy):
                 if r < self.oversold or price > ema:
                     position = 0
 
-            signal.iloc[i] = position
+            signal_arr[i] = position
 
-        return signal
+        return pd.Series(signal_arr, index=close.index, name="signal")
 
     def __repr__(self) -> str:
         return (
