@@ -142,6 +142,45 @@ class TestNoLookAheadBias:
         # First bar return should be 0 because position.shift(1) produces NaN → 0
         assert result.returns.iloc[0] == pytest.approx(0.0)
 
+    def test_strict_signal_shift(self):
+        """Verify the exact sequence of returns to strictly rule out look-ahead bias."""
+        data = make_ohlcv(10, start_price=100.0)
+        # Create an artificial sequence where price goes 100 -> 110 -> 105 -> 120 -> 100
+        # Returns: NaN, +10%, -4.5%, +14.2%, -16.6%
+        closes = [100.0, 110.0, 105.0, 120.0, 100.0]
+        data = data.iloc[:len(closes)].copy()
+        data['close'] = closes
+
+        # A strategy that signals Long on day 1 (index 1: price 110.0) and Short on day 2 (index 2: price 105.0)
+        class MockStrategy(BaseStrategy):
+            name = "Mock"
+            def generate_signals(self, data: pd.DataFrame) -> pd.Series:
+                signals = pd.Series(0, index=data.index)
+                signals.iloc[1] = 1
+                signals.iloc[2] = -1
+                return signals
+
+        engine = BacktestEngine(data, MockStrategy(), commission=0.0)
+        result = engine.run()
+
+        # Day 0: Signal 0.
+        # Day 1: Signal 1. Executed at end of Day 1.
+        # Day 2: Signal -1. Open Long position captures Day 2 return: (105 - 110)/110 = -4.545%
+        #                 Executed Short at end of Day 2.
+        # Day 3: Open Short position captures Day 3 return: (120 - 105)/105 = 14.285% -> Net Short return = -14.285%
+        # Day 4: Open Short position captures Day 4 return: (100 - 120)/120 = -16.666% -> Net Short return = +16.666%
+        # However, MockStrategy only returned signals up to index 2 (rest are 0).
+        # So on Day 3, it shifts Day 2's signal (-1), meaning Day 3 position is -1.
+        # But for Day 4, the signal from Day 3 was 0 (fillna(0) for unassigned indices in pd.Series(0) instantiation).
+        # So Day 4 position is 0, not -1. So Day 4 return is 0.0.
+
+        returns = result.returns
+        assert returns.iloc[0] == 0.0
+        assert returns.iloc[1] == 0.0
+        assert returns.iloc[2] == pytest.approx((105.0 - 110.0) / 110.0)
+        assert returns.iloc[3] == pytest.approx(-((120.0 - 105.0) / 105.0))
+        assert returns.iloc[4] == pytest.approx(0.0)
+
 
 # ---------------------------------------------------------------------------
 # Trade extraction

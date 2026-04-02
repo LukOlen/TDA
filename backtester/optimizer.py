@@ -250,6 +250,7 @@ def walk_forward(
     splits: list[dict] = []
     all_oos_returns: list[pd.Series] = []
     all_oos_equity: list[pd.Series] = []
+    all_oos_trades: list[pd.DataFrame] = []
 
     for idx, (is_start, is_end, oos_start, oos_end) in enumerate(windows):
         is_data = data.iloc[is_start:is_end]
@@ -281,6 +282,8 @@ def walk_forward(
         # Collect OOS data for aggregate metrics
         all_oos_returns.append(oos_result.returns)
         all_oos_equity.append(oos_result.equity_curve)
+        if not oos_result.trades.empty:
+            all_oos_trades.append(oos_result.trades)
 
         oos_equity_points = [
             {"date": str(d.date()), "value": round(v, 2)}
@@ -304,8 +307,14 @@ def walk_forward(
         combined_returns = pd.concat(all_oos_returns)
         combined_equity = initial_capital * (1 + combined_returns).cumprod()
         combined_equity.iloc[0] = initial_capital
+
+        if all_oos_trades:
+            combined_trades = pd.concat(all_oos_trades, ignore_index=True)
+        else:
+            combined_trades = pd.DataFrame()
+
         # No benchmark for aggregate (would require stitching)
-        aggregate_metrics = compute_metrics(combined_returns, combined_equity, pd.DataFrame())
+        aggregate_metrics = compute_metrics(combined_returns, combined_equity, combined_trades)
     else:
         aggregate_metrics = {}
 

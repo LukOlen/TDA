@@ -221,6 +221,13 @@ class TestWalkForward:
         assert "total_return" in agg
         assert "sharpe_ratio" in agg
 
+        # Verify that trade metrics are populated
+        assert "total_trades" in agg
+        assert "win_rate" in agg
+
+        # With realistic mock data over 600 bars, there should be some trades
+        assert agg["total_trades"] > 0
+
     def test_anchored_mode(self):
         data = make_ohlcv(600, seed=7)
         result = walk_forward(
