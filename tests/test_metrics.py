@@ -11,6 +11,7 @@ from backtester.stats.metrics import (
     calmar_ratio,
     win_rate,
     profit_factor,
+    alpha,
     compute_metrics,
 )
 
@@ -195,6 +196,62 @@ class TestProfitFactor:
 
     def test_empty_trades(self):
         assert profit_factor(make_trades([])) == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Alpha
+# ---------------------------------------------------------------------------
+
+class TestAlpha:
+    def test_alpha_zero_when_returns_match_benchmark(self):
+        # Beta is 1.0, mean_s == mean_b, so alpha = 0.0
+        returns = make_returns([0.01, -0.005, 0.002] * 84)
+        result = alpha(returns, returns)
+        assert result == pytest.approx(0.0, abs=1e-6)
+
+    def test_positive_alpha(self):
+        # Benchmark returns
+        b_returns = make_returns([0.01, -0.005, 0.002] * 84)
+        # Strategy returns are benchmark + 0.001 daily
+        s_returns = b_returns + 0.001
+
+        # Beta should be exactly 1.0.
+        # Mean difference is 0.001 daily, annualised is 0.001 * 252 = 0.252.
+        result = alpha(s_returns, b_returns, periods=252)
+        assert result == pytest.approx(0.252, abs=1e-6)
+
+    def test_negative_alpha(self):
+        # Benchmark returns
+        b_returns = make_returns([0.01, -0.005, 0.002] * 84)
+        # Strategy returns are benchmark - 0.001 daily
+        s_returns = b_returns - 0.001
+
+        # Alpha should be -0.001 * 252 = -0.252
+        result = alpha(s_returns, b_returns, periods=252)
+        assert result == pytest.approx(-0.252, abs=1e-6)
+
+    def test_risk_free_rate_impact(self):
+        # Benchmark returns
+        b_returns = make_returns([0.01, -0.005, 0.002] * 84)
+        # Strategy has half the volatility (beta = 0.5) + constant
+        s_returns = b_returns * 0.5
+
+        # alpha = mean_s - rf - beta * (mean_b - rf)
+        # Since mean_s = 0.5 * mean_b and beta = 0.5:
+        # alpha(rf=0) = 0.5 * mean_b - 0 - 0.5 * (mean_b - 0) = 0
+        # alpha(rf=0.05) = 0.5 * mean_b - 0.05 - 0.5 * (mean_b - 0.05) = -0.05 + 0.025 = -0.025
+        res_0 = alpha(s_returns, b_returns, risk_free_rate=0.0, periods=252)
+        assert res_0 == pytest.approx(0.0, abs=1e-6)
+
+        res_5 = alpha(s_returns, b_returns, risk_free_rate=0.05, periods=252)
+        assert res_5 == pytest.approx(-0.025, abs=1e-6)
+
+    def test_nan_beta_returns_nan(self):
+        # Too few data points -> nan beta -> nan alpha
+        s_returns = make_returns([0.01])
+        b_returns = make_returns([0.01])
+        result = alpha(s_returns, b_returns)
+        assert np.isnan(result)
 
 
 # ---------------------------------------------------------------------------
