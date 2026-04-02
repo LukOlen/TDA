@@ -6,9 +6,12 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from api.main import app
+from api.routes.backtest import _validate_strategy
+from backtester.strategies import REGISTRY
 
 
 # ---------------------------------------------------------------------------
@@ -41,6 +44,22 @@ def _mock_load_ohlcv():
     with patch("api.routes.backtest.load_ohlcv", return_value=fake), \
          patch("backtester.data.yf.download", return_value=fake):
         yield
+
+
+# ---------------------------------------------------------------------------
+# Unit tests
+# ---------------------------------------------------------------------------
+
+class TestValidateStrategy:
+    def test_valid_strategy(self):
+        result = _validate_strategy("sma_crossover")
+        assert result is REGISTRY["sma_crossover"]
+
+    def test_invalid_strategy(self):
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_strategy("nonexistent")
+        assert exc_info.value.status_code == 400
+        assert "Unknown strategy" in exc_info.value.detail
 
 
 # ---------------------------------------------------------------------------
