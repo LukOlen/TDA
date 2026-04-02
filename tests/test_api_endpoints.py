@@ -84,6 +84,17 @@ class TestSingleBacktest:
         })
         assert resp.status_code == 400
 
+    def test_invalid_strategy_params_422(self, client):
+        resp = client.post("/api/backtest", json={
+            "ticker": "AAPL",
+            "start_date": "2020-01-01",
+            "end_date": "2024-01-01",
+            "strategy": "sma_crossover",
+            "params": {"bad_param": 123}
+        })
+        assert resp.status_code == 422
+        assert "Invalid strategy parameters" in resp.json()["detail"]
+
 
 # ---------------------------------------------------------------------------
 # Batch backtest
