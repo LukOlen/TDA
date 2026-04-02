@@ -11,6 +11,7 @@ from backtester.stats.metrics import (
     calmar_ratio,
     win_rate,
     profit_factor,
+    beta,
     compute_metrics,
 )
 
@@ -195,6 +196,43 @@ class TestProfitFactor:
 
     def test_empty_trades(self):
         assert profit_factor(make_trades([])) == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Beta
+# ---------------------------------------------------------------------------
+
+class TestBeta:
+    def test_beta_with_self(self):
+        rng = np.random.default_rng(0)
+        returns = make_returns(rng.normal(0.01, 0.01, 100).tolist())
+        assert beta(returns, returns) == pytest.approx(1.0)
+
+    def test_zero_variance_benchmark(self):
+        strategy = make_returns([0.01, -0.01, 0.02, 0.00])
+        benchmark = make_returns([0.0, 0.0, 0.0, 0.0])
+        assert np.isnan(beta(strategy, benchmark))
+
+    def test_less_than_two_aligned(self):
+        strategy = make_returns([0.01])
+        benchmark = make_returns([0.02])
+        assert np.isnan(beta(strategy, benchmark))
+
+    def test_known_relationship(self):
+        rng = np.random.default_rng(42)
+        benchmark = make_returns(rng.normal(0.01, 0.01, 100).tolist())
+        strategy = benchmark * 2.5
+        assert beta(strategy, benchmark) == pytest.approx(2.5)
+
+    def test_unaligned_series(self):
+        rng = np.random.default_rng(123)
+        benchmark = make_returns(rng.normal(0.01, 0.01, 100).tolist())
+        strategy = benchmark * 1.5
+
+        # Misalign the indices
+        strategy = strategy.iloc[10:90]
+
+        assert beta(strategy, benchmark) == pytest.approx(1.5)
 
 
 # ---------------------------------------------------------------------------
