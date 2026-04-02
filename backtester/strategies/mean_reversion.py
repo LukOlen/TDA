@@ -46,23 +46,23 @@ class BollingerMeanReversion(BaseStrategy):
         lower = mid - self.num_std * std
 
         signal = pd.Series(np.nan, index=close.index, name="signal")
-        position = 0
 
-        for i, (date, price) in enumerate(close.items()):
-            if pd.isna(mid.iloc[i]):
-                signal.loc[date] = 0
-                continue
+        # Set 0 where moving average is not available yet
+        signal[pd.isna(mid)] = 0
 
-            if position == 0:
-                # Entry: price pierces the lower band → oversold → go long
-                if price < lower.iloc[i]:
-                    position = 1
-            elif position == 1:
-                # Exit: price reverts to the upper band or middle band
-                if price > upper.iloc[i] or price > mid.iloc[i]:
-                    position = 0
+        # Create boolean masks for conditions
+        entry_mask = close < lower
+        exit_mask = (close > upper) | (close > mid)
+        valid_mask = ~pd.isna(mid)
 
-            signal.loc[date] = position
+        # Apply conditions
+        # Entry: price pierces the lower band → oversold → go long
+        signal.loc[valid_mask & entry_mask] = 1
+        # Exit: price reverts to the upper band or middle band
+        signal.loc[valid_mask & exit_mask] = 0
+
+        # Forward fill the gaps to maintain position
+        signal = signal.ffill()
 
         return signal.fillna(0).astype(int)
 
