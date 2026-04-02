@@ -7,6 +7,7 @@ from backtester.stats.metrics import (
     sharpe_ratio,
     sortino_ratio,
     max_drawdown,
+    drawdown_series,
     cagr,
     calmar_ratio,
     win_rate,
@@ -103,6 +104,37 @@ class TestSortinoRatio:
 # ---------------------------------------------------------------------------
 # Max drawdown
 # ---------------------------------------------------------------------------
+
+class TestDrawdownSeries:
+    def test_no_drawdown(self):
+        equity = pd.Series([100.0, 110.0, 120.0, 130.0])
+        dd = drawdown_series(equity)
+        np.testing.assert_array_almost_equal(dd, [0.0, 0.0, 0.0, 0.0])
+
+    def test_with_drawdown(self):
+        equity = pd.Series([100.0, 120.0, 60.0, 80.0, 150.0])
+        # Peak series: 100, 120, 120, 120, 150
+        # Drawdown = (equity - peak) / peak
+        # [0, 0, (60-120)/120, (80-120)/120, 0]
+        # [0, 0, -0.5, -0.3333333, 0]
+        dd = drawdown_series(equity)
+        expected = np.array([0.0, 0.0, -0.5, -1/3, 0.0])
+        np.testing.assert_array_almost_equal(dd, expected)
+
+    def test_flat_equity(self):
+        equity = pd.Series([100.0, 100.0, 100.0])
+        dd = drawdown_series(equity)
+        np.testing.assert_array_almost_equal(dd, [0.0, 0.0, 0.0])
+
+    def test_all_negative_returns(self):
+        equity = pd.Series([100.0, 90.0, 81.0, 72.9])
+        # Peak series: 100, 100, 100, 100
+        # Drawdown = [0, -0.1, -0.19, -0.271]
+        dd = drawdown_series(equity)
+        expected = np.array([0.0, -0.1, -0.19, -0.271])
+        np.testing.assert_array_almost_equal(dd, expected)
+
+
 
 class TestMaxDrawdown:
     def test_no_drawdown(self):
