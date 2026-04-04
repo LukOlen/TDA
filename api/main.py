@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes.backtest import router as backtest_router
+from api.routes.analysis import router as analysis_router
 
 app = FastAPI(
     title="TDA Backtester API",
@@ -34,6 +35,7 @@ app.add_middleware(
 )
 
 app.include_router(backtest_router)
+app.include_router(analysis_router)
 
 
 @app.get("/health")

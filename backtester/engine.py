@@ -60,7 +60,11 @@ class BacktestEngine:
     def run(self) -> BacktestResult:
         """Execute the backtest and return a :class:`BacktestResult`."""
         signals = self.strategy.generate_signals(self.data)
-        signals = signals.reindex(self.data.index).fillna(0).astype(int)
+        signals = signals.reindex(self.data.index).fillna(0)
+        # Support both float (fractional sizing) and integer signals
+        is_float = not np.allclose(signals.values, np.round(signals.values))
+        if not is_float:
+            signals = signals.round().astype(int)
 
         # Shift 1 bar to eliminate look-ahead bias
         positions = signals.shift(1).fillna(0)
@@ -81,8 +85,9 @@ class BacktestEngine:
         equity_curve = self.initial_capital * (1 + net_returns).cumprod()
         equity_curve.iloc[0] = self.initial_capital
 
-        # Extract individual trades
-        trades = self._extract_trades(signals, close)
+        # Extract individual trades (use directional sign for float signals)
+        trade_signals = np.sign(signals).astype(int) if is_float else signals
+        trades = self._extract_trades(trade_signals, close)
 
         # Also build a buy-and-hold benchmark equity curve
         bah_returns = daily_returns.copy()
