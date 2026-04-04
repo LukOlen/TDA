@@ -116,7 +116,8 @@ class TestMaxDrawdown:
 
     def test_always_negative_or_zero(self):
         rng = np.random.default_rng(0)
-        equity = pd.Series((100 * (1 + rng.normal(0, 0.01, 500))).cumprod())
+        returns = pd.Series(rng.normal(0, 0.01, 500))
+        equity = 100 * (1 + returns).cumprod()
         assert max_drawdown(equity) <= 0
 
 

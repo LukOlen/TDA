@@ -4,7 +4,6 @@ Backtest route handlers.
 from __future__ import annotations
 
 import asyncio
-import dataclasses
 import functools
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -20,7 +19,6 @@ from backtester.optimizer import (
     walk_forward,
     VALID_METRICS,
 )
-from backtester.monte_carlo import run_monte_carlo
 from api.models import (
     BacktestRequest,
     BacktestResponse,
@@ -35,8 +33,6 @@ from api.models import (
     WalkForwardRequest,
     WalkForwardResponse,
     WalkForwardSplit,
-    MonteCarloRequest,
-    MonteCarloResponse,
     StrategyInfo,
     StrategyParam,
 )
@@ -427,68 +423,3 @@ async def walk_forward_analysis(req: WalkForwardRequest) -> WalkForwardResponse:
         splits=splits,
         aggregate_oos_metrics=raw["aggregate_oos_metrics"],
     )
-
-
-# ---------------------------------------------------------------------------
-# Monte Carlo simulation
-# ---------------------------------------------------------------------------
-
-def _run_monte_carlo_sync(req: MonteCarloRequest) -> dict:
-    """Synchronous Monte Carlo helper."""
-    strategy_cls = _validate_strategy(req.strategy)
-    data = _load_data(req.ticker, req.start_date, req.end_date)
-
-    try:
-        strategy = strategy_cls(**req.params)
-    except (TypeError, ValueError) as exc:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Invalid strategy parameters: {exc}",
-        )
-
-    engine = BacktestEngine(
-        data=data,
-        strategy=strategy,
-        initial_capital=req.initial_capital,
-        commission=req.commission,
-        ticker=req.ticker.upper(),
-    )
-    result = engine.run()
-
-    try:
-        mc = run_monte_carlo(
-            returns=result.returns,
-            n_simulations=req.n_simulations,
-            horizon=req.horizon,
-            confidence_levels=req.confidence_levels,
-            method=req.method,
-            block_size=req.block_size,
-            seed=req.seed,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-
-    return {
-        "ticker": req.ticker.upper(),
-        "strategy": req.strategy,
-        **dataclasses.asdict(mc),
-    }
-
-
-@router.post("/backtest/monte-carlo", response_model=MonteCarloResponse)
-async def monte_carlo_analysis(req: MonteCarloRequest) -> MonteCarloResponse:
-    """Run Monte Carlo risk simulation on a strategy's returns."""
-    loop = asyncio.get_event_loop()
-    try:
-        raw = await loop.run_in_executor(
-            _EXECUTOR,
-            functools.partial(_run_monte_carlo_sync, req),
-        )
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Monte Carlo simulation failed: {exc}",
-        )
-    return MonteCarloResponse(**raw)

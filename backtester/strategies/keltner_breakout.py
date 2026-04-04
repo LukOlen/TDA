@@ -111,18 +111,24 @@ class KeltnerBreakout(BaseStrategy):
         # Both midline EMA and ATR need to converge before signals are valid
         warmup = max(self.period, self.atr_period)
 
-        signal = pd.Series(0, index=close.index, name="signal")
+        price_arr = close.to_numpy()
+        mid_arr = midline.to_numpy()
+        up_arr = upper.to_numpy()
+        lo_arr = lower.to_numpy()
+
+        n = len(close)
+        signal_arr = np.zeros(n, dtype=np.int8)
         position = 0
 
-        for i in range(len(close)):
-            if i < warmup or pd.isna(upper.iloc[i]) or pd.isna(lower.iloc[i]):
-                signal.iloc[i] = 0
+        for i in range(n):
+            if i < warmup or np.isnan(up_arr[i]) or np.isnan(lo_arr[i]):
+                signal_arr[i] = 0
                 continue
 
-            price = close.iloc[i]
-            mid = midline.iloc[i]
-            up = upper.iloc[i]
-            lo = lower.iloc[i]
+            price = price_arr[i]
+            mid = mid_arr[i]
+            up = up_arr[i]
+            lo = lo_arr[i]
 
             if position == 0:
                 if price > up:
@@ -140,9 +146,9 @@ class KeltnerBreakout(BaseStrategy):
                 if price >= mid:
                     position = 0
 
-            signal.iloc[i] = position
+            signal_arr[i] = position
 
-        return signal
+        return pd.Series(signal_arr, index=close.index, name="signal")
 
     def __repr__(self) -> str:
         return (

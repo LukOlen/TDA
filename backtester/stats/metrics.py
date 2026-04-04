@@ -48,10 +48,12 @@ def sortino_ratio(
     downside = excess[excess < 0]
     if downside.empty:
         return float("inf")
-    downside_std = downside.std(ddof=1)
-    if downside_std == 0 or np.isnan(downside_std):
+    # Downside deviation is the square root of the mean of squared negative returns.
+    downside_variance = (downside ** 2).sum() / len(excess)
+    downside_deviation = np.sqrt(downside_variance)
+    if downside_deviation == 0 or np.isnan(downside_deviation):
         return float("inf")
-    return float(np.sqrt(periods) * excess.mean() / downside_std)
+    return float(np.sqrt(periods) * excess.mean() / downside_deviation)
 
 
 def max_drawdown(equity_curve: pd.Series) -> float:
@@ -71,7 +73,7 @@ def cagr(equity_curve: pd.Series, periods: int = 252) -> float:
     """Compound Annual Growth Rate."""
     if len(equity_curve) < 2 or equity_curve.iloc[0] == 0:
         return 0.0
-    n_years = len(equity_curve) / periods
+    n_years = (len(equity_curve) - 1) / periods
     return float((equity_curve.iloc[-1] / equity_curve.iloc[0]) ** (1.0 / n_years) - 1)
 
 
